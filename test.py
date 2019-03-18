@@ -56,10 +56,11 @@ def load_imgs(nums=210,height=512,width=512,channels=1, num_class=2):
 		# np.save('imgs/imgs{}.npy'.format(i), imgs) 
 		# np.save('segs/segs{}.npy'.format(i), segs) 
 		# print(i,imgs.shape,masks.shape)
-		if i%10==0: print(i,imgs.shape,masks.shape,np.mean(labels))
+		print(i,img.shape[0],np.mean(label))
 
+	print('all images',imgs.shape[0],np.mean(labels))
 	return imgs, masks, labels
-load_imgs(2)
+# load_imgs(2)
 
 # volume, segmentation = load_case(1)
 # img = volume.get_data()

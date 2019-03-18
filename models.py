@@ -50,7 +50,7 @@ def get_unet(img_rows, img_cols, loss , optimizer, metrics, channels = 1,num_cla
     conv5_2 = Conv2D(1204, (3, 3), strides=(2,2), activation='relu', padding='same')(conv5_1)
     # conv5_3 = Conv2D(1204, (3, 3), stride=2, activation='relu', padding='same')(conv5_2)
     global_pool = GlobalMaxPooling2D()(conv5_2)
-    output_l = Dense(1,activation='sigmoid')(global_pool)
+    output_l = Dense(1,activation='sigmoid',name='d')(global_pool)
 
     up6 = Conv2DTranspose(256, (2, 2), strides=(2, 2), padding='same')(conv5)
     at6 = Attention_bolck(up6, conv4)
@@ -76,11 +76,11 @@ def get_unet(img_rows, img_cols, loss , optimizer, metrics, channels = 1,num_cla
     conv9 = Conv2D(32, (3, 3), activation='relu', padding='same')(up9)
     conv9 = Conv2D(32, (3, 3), activation='relu', padding='same')(conv9)
 
-    conv10 = Conv2D(num_class, (1, 1), activation='softmax')(conv9)
+    conv10 = Conv2D(num_class, (1, 1), activation='softmax',name='s')(conv9)
 
     model = Model(inputs=[inputs], outputs=[conv10,output_l])
 
-    model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+    model.compile(optimizer=optimizer, loss=loss, metrics=metrics,loss_weights=[0.3,1.])
 
     return model
 

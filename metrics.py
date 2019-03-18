@@ -27,7 +27,7 @@ def jacc_loss(y_true, y_pred):
     return -jacc_coef(y_true, y_pred)
 
 def dice_loss(y_true, y_pred):
-    return -dice_coef(y_true, y_pred)
+    return 1-dice_coef(y_true, y_pred)
     
 def dice_jacc_single(mask_true, mask_pred, smooth = smooth_default):
     bool_true = mask_true.reshape(-1).astype(np.bool)

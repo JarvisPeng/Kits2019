@@ -11,6 +11,7 @@ import models
 import glob
 from sklearn.model_selection import train_test_split
 import cv2 
+import tensorflow as tf
 
 np.random.seed(3)
 K.set_image_dim_ordering("tf")  # Theano dimension ordering: (channels, width, height)
@@ -80,21 +81,41 @@ def post_process(input_mask):
 # y_true and y_pred should be one-hot
 # y_true.shape = (None,Width,Height,Channel)
 # y_pred.shape = (None,Width,Height,Channel)
+# def muti_dice_coef(y_true, y_pred, smooth=1,num_class=2):
+#     mean_loss = 0;
+#     for i in range(num_class):  #y_pred.shape(-1)):
+#         y_true_f = K.batch_flatten(y_true[:,:,:,i])
+#         y_pred_f = K.batch_flatten(y_pred[:,:,:,i])
+#         intersection = K.sum(y_true_f*y_pred_f,axis=1,keepdims=True)
+#         union = K.sum(y_true_f,axis=1,keepdims=True)+K.sum(y_pred_f,axis=1,keepdims=True)
+#         # intersection = K.sum(y_true[:,:,:,i] * y_pred[:,:,:,i], axis=[1,2,3])
+#         # union = K.sum(y_true[:,:,:,i], axis=[1,2,3]) + K.sum(y_pred[:,:,:,i], axis=[1,2,3])
+#         mean_loss += (2. * intersection + smooth) / (union + smooth)
+#     return   K.mean(mean_loss/num_class)  # K.mean(mean_loss,axis=0)
+
 def muti_dice_coef(y_true, y_pred, smooth=1,num_class=2):
-    mean_loss = 0;
-    for i in range(num_class):  #y_pred.shape(-1)):
-        y_true_f = K.flatten(y_true[:,:,:,i],axis=-1)
-        y_pred_f = K.flatten(y_pred[:,:,:,i],axis=-1)
-        intersection = K.sum(y_true_f*y_pred_f)
-        union = K.sum(y_true_f)+K.sum(y_pred_f)
-        # intersection = K.sum(y_true[:,:,:,i] * y_pred[:,:,:,i], axis=[1,2,3])
-        # union = K.sum(y_true[:,:,:,i], axis=[1,2,3]) + K.sum(y_pred[:,:,:,i], axis=[1,2,3])
-    mean_loss += (2. * intersection + smooth) / (union + smooth)
-    return K.mean(mean_loss, axis=0)
+    intersection = K.sum(y_true * y_pred, axis=[1,2])       #在图片的宽高轴求和得到交集 ，最后直接求总平均即可得到dice平均
+    union = K.sum(y_true, axis=[1,2]) + K.sum(y_pred, axis=[1,2])
+    loss = (2. * intersection + smooth) / (union + smooth)
+    return  K.mean(loss)  # K.mean(mean_loss,axis=0)
+
 def muti_dice_coef_loss(y_true, y_pred):
-    1 - dice_coef(y_true, y_pred)
+    return 1 - muti_dice_coef(y_true, y_pred)
 
+def focal_loss_fixed(y_true, y_pred):
+    # tensorflow backend, alpha and gamma are hyper-parameters which can set by you
+    alpha = 0.6
+    gamma = 0.75
+    pt_1 = tf.where(tf.equal(y_true, 1), y_pred, tf.ones_like(y_pred))
+    pt_0 = tf.where(tf.equal(y_true, 0), y_pred, tf.zeros_like(y_pred))
+    return -K.sum(alpha * K.pow(1. - pt_1, gamma) * K.log(pt_1)) - K.sum(
+        (1 - alpha) * K.pow(pt_0, gamma) * K.log(1. - pt_0))
 
+def weighted_binary_crossentropy(y_true, y_pred,weight = 0.6/0.4):
+    eps = K.epsilon()  #10e-6
+    y_pred = K.clip(y_pred,eps,1.-eps)
+    return K.mean(-weight*y_true*K.log(y_pred)-(1.-y_true)*K.log(1.-y_pred))
+    # return K.mean(-1.5*np.multiply(y_true,K.log(y_pred+eps))-np.multiply((1.-y_true),K.log(1.-y_pred+eps)))
 
 seed = 1
 height, width = 128, 128
@@ -125,7 +146,7 @@ optimizer = optimizer_options[optimizer_param]
 model_filename = "saved_models/2019{}.h5".format(model_name)
 print(model_filename)
 
-model = models.get_unet(512,512, loss=[loss,'binary_crossentropy'], optimizer = optimizer, metrics = metrics,channels=1, num_class=2)
+model = models.get_unet(512,512, loss=[muti_dice_coef_loss,weighted_binary_crossentropy], optimizer = optimizer, metrics = [jacc_coef,'accuracy'],channels=1, num_class=2)
 # model = models.get_unet(height,width, loss=muti_dice_coef_loss, optimizer = optimizer, metrics = muti_dice_coef,channels=1, num_class=2)
 
 
@@ -137,7 +158,7 @@ imgs, masks ,labels= load_imgs(1)
 
 print ("Using batch size = {}".format(batch_size))
 print ('Fit model')
-model_checkpoint = ModelCheckpoint(model_filename, monitor= 'val_jacc_coef', save_best_only=True, verbose=1)
+model_checkpoint = ModelCheckpoint(model_filename, monitor= 'val_s_jacc_coef', save_best_only=True, verbose=1)  # 'val_jacc_coef'
 
 model.summary()
 print ("Not using validation during training")
