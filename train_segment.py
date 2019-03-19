@@ -140,7 +140,7 @@ print(model_filename)
 
 model = models.get_unet(512,512, 
     loss={'c':muti_dice_coef_loss,'d':weighted_binary_crossentropy}, optimizer = optimizer, 
-              metrics = {'c':jacc_coef,'d':'accuracy'},channels=1, num_class=2)
+              metrics = {'c':jacc_coef,'d':'accuracy'},channels=1, num_class=1)
 # model = models.get_unet(height,width, loss=muti_dice_coef_loss, optimizer = optimizer, metrics = muti_dice_coef,channels=1, num_class=2)
 
 

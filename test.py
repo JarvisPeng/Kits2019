@@ -24,11 +24,12 @@ def seg_to_mask(seg,class_nums = 2):
 
 	positve = np.ones(seg.shape).astype(np.uint8)
 	negative = np.zeros(seg.shape).astype(np.uint8)
-	# 两类
-	kidney = np.where(seg==1,positve,negative)
-	tumor = np.where(seg==2,positve,negative)
-	mask = np.stack((kidney,tumor),axis=-1)
-	# print(mask.shape)
+	# # 两类
+	# kidney = np.where(seg==1,positve,negative)
+	# tumor = np.where(seg==2,positve,negative)
+	# mask = np.stack((kidney,tumor),axis=-1)
+	# # print(mask.shape)
+	mask = np.expand_dims(np.where(seg,positve,negative),axis=-1)
 	return mask
 
 def load_imgs(nums=[0],height=512,width=512,channels=1, num_class=2):
