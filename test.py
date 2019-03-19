@@ -31,10 +31,10 @@ def seg_to_mask(seg,class_nums = 2):
 	# print(mask.shape)
 	return mask
 
-def load_imgs(nums=210,height=512,width=512,channels=1, num_class=2):
+def load_imgs(nums=[0],height=512,width=512,channels=1, num_class=2):
 	# imgs =np.zeros(shape=(nums,height,width,channels))
 	# masks =np.zeros(shape=(nums,height,width,channels))
-	for i in range(0, nums):
+	for i in nums:
 		volume, segmentation = load_case(i)
 		img = volume.get_data()
 		# print(img.shape)
@@ -44,7 +44,7 @@ def load_imgs(nums=210,height=512,width=512,channels=1, num_class=2):
 		# print(img.shape)
 		mask = seg_to_mask(seg)
 		label = np.array([np.max(mask[i]) for i in range(mask.shape[0])]).astype(np.uint8)  #判断是否有分割内容
-		if i ==0: imgs,masks,labels= img,mask,label
+		if i == nums[0]: imgs,masks,labels= img,mask,label
 		else:
 			imgs = np.concatenate([imgs,img],axis=0)
 			masks = np.concatenate([masks,mask],axis=0)

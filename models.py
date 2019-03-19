@@ -11,7 +11,7 @@ np.random.seed(4)
 VGG16_WEIGHTS_NOTOP = 'pretrained_weights/vgg16_notop.h5'
 # download .h5 weights from https://gist.github.com/baraldilorenzo/07d7802847aaad0a35d3
 
-def Attention_bolck(x,g):
+def Attention_bolck(g,x):
     f_int = 16
     g1 = Conv2D(f_int,(1,1))(g)
     x1 = Conv2D(f_int,(1,1))(x)
@@ -24,63 +24,70 @@ def Attention_bolck(x,g):
 def get_unet(img_rows, img_cols, loss , optimizer, metrics, channels = 1,num_class=2):
 
     inputs = Input((img_rows, img_cols, channels))
+    num_f = [4,8,16,32,64,128,256,512,1024]  # numbers of filters
     # gaussian_noise_std = 0.025
     # input_with_noise = GaussianNoise(gaussian_noise_std)(inputs)
-    conv1 = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
-    conv1 = Conv2D(32, (3, 3), activation='relu', padding='same')(conv1)
+    conv1 = Conv2D(num_f[0], (3, 3), activation='relu', padding='same')(inputs)
+    conv1 = Conv2D(num_f[0], (3, 3), activation='relu', padding='same')(conv1)
     pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
 
-    conv2 = Conv2D(64, (3, 3), activation='relu', padding='same')(pool1)
-    conv2 = Conv2D(64, (3, 3), activation='relu', padding='same')(conv2)
+    conv2 = Conv2D(num_f[1], (3, 3), activation='relu', padding='same')(pool1)
+    conv2 = Conv2D(num_f[1], (3, 3), activation='relu', padding='same')(conv2)
     pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
 
-    conv3 = Conv2D(128, (3, 3), activation='relu', padding='same')(pool2)
-    conv3 = Conv2D(128, (3, 3), activation='relu', padding='same')(conv3)
+    conv3 = Conv2D(num_f[2], (3, 3), activation='relu', padding='same')(pool2)
+    conv3 = Conv2D(num_f[2], (3, 3), activation='relu', padding='same')(conv3)
     pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
 
-    conv4 = Conv2D(256, (3, 3), activation='relu', padding='same')(pool3)
-    conv4 = Conv2D(256, (3, 3), activation='relu', padding='same')(conv4)
+    conv4 = Conv2D(num_f[3], (3, 3), activation='relu', padding='same')(pool3)
+    conv4 = Conv2D(num_f[3], (3, 3), activation='relu', padding='same')(conv4)
     pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
 
-    conv5 = Conv2D(512, (3, 3), activation='relu', padding='same')(pool4)
-    conv5 = Conv2D(512, (3, 3), activation='relu', padding='same')(conv5)
+    conv5 = Conv2D(num_f[4], (3, 3), activation='relu', padding='same')(pool4)
+    conv5 = Conv2D(num_f[4], (3, 3), activation='relu', padding='same')(conv5)
 
     # downsample label
-    conv5_1 = Conv2D(512, (3, 3), strides=(2,2), activation='relu', padding='same')(conv5)
-    conv5_2 = Conv2D(1204, (3, 3), strides=(2,2), activation='relu', padding='same')(conv5_1)
+    # conv5_1 = Conv2D(num_f[4], (3, 3), strides=(2,2), activation='relu', padding='same')(conv5)
+    # conv5_2 = Conv2D(num_f[5], (3, 3), strides=(2,2), activation='relu', padding='same')(conv5_1)
+    conv5 = Conv2D(num_f[4], (3, 3), strides=(1,1), dilation_rate=2, activation='relu', padding='same')(conv5)
+    conv5 = Conv2D(num_f[4], (3, 3), strides=(1,1), dilation_rate=5, activation='relu', padding='same')(conv5)
+    
+    conv5 = Conv2D(num_f[4], (3, 3), activation='relu', padding='same')(conv5)
+    conv5 = Conv2D(num_f[4], (3, 3), strides=(1,1), dilation_rate=2, activation='relu', padding='same')(conv5)
+    conv5 = Conv2D(num_f[4], (3, 3), strides=(1,1), dilation_rate=5, activation='relu', padding='same')(conv5)
     # conv5_3 = Conv2D(1204, (3, 3), stride=2, activation='relu', padding='same')(conv5_2)
-    global_pool = GlobalMaxPooling2D()(conv5_2)
+    global_pool = GlobalMaxPooling2D()(conv5)
     output_l = Dense(1,activation='sigmoid',name='d')(global_pool)
 
-    up6 = Conv2DTranspose(256, (2, 2), strides=(2, 2), padding='same')(conv5)
+    up6 = Conv2DTranspose(num_f[3], (2, 2), strides=(2, 2), padding='same')(conv5)
     at6 = Attention_bolck(up6, conv4)
     up6 = concatenate([up6,at6], axis=3)
-    conv6 = Conv2D(256, (3, 3), activation='relu', padding='same')(up6)
-    conv6 = Conv2D(256, (3, 3), activation='relu', padding='same')(conv6)
+    conv6 = Conv2D(num_f[3], (3, 3), activation='relu', padding='same')(up6)
+    conv6 = Conv2D(num_f[3], (3, 3), activation='relu', padding='same')(conv6)
 
-    up7 = Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')(conv6)
+    up7 = Conv2DTranspose(num_f[2], (2, 2), strides=(2, 2), padding='same')(conv6)
     at7 = Attention_bolck(up7, conv3)
     up7 = concatenate([up7, at7], axis=3)
-    conv7 = Conv2D(128, (3, 3), activation='relu', padding='same')(up7)
-    conv7 = Conv2D(128, (3, 3), activation='relu', padding='same')(conv7)
+    conv7 = Conv2D(num_f[2], (3, 3), activation='relu', padding='same')(up7)
+    conv7 = Conv2D(num_f[2], (3, 3), activation='relu', padding='same')(conv7)
 
-    up8 = Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')(conv7)
+    up8 = Conv2DTranspose(num_f[1], (2, 2), strides=(2, 2), padding='same')(conv7)
     at8 = Attention_bolck(up8,conv2)
     up8 = concatenate([up8, at8], axis=3)
-    conv8 = Conv2D(64, (3, 3), activation='relu', padding='same')(up8)
-    conv8 = Conv2D(64, (3, 3), activation='relu', padding='same')(conv8)
+    conv8 = Conv2D(num_f[1], (3, 3), activation='relu', padding='same')(up8)
+    conv8 = Conv2D(num_f[1], (3, 3), activation='relu', padding='same')(conv8)
 
-    up9 = Conv2DTranspose(32, (2, 2), strides=(2, 2), padding='same')(conv8)
+    up9 = Conv2DTranspose(num_f[0], (2, 2), strides=(2, 2), padding='same')(conv8)
     at9 = Attention_bolck(up9,conv1)
     up9 = concatenate([up9, at9], axis=3)
-    conv9 = Conv2D(32, (3, 3), activation='relu', padding='same')(up9)
-    conv9 = Conv2D(32, (3, 3), activation='relu', padding='same')(conv9)
+    conv9 = Conv2D(num_f[0], (3, 3), activation='relu', padding='same')(up9)
+    conv9 = Conv2D(num_f[0], (3, 3), activation='relu', padding='same')(conv9)
 
-    conv10 = Conv2D(num_class, (1, 1), activation='softmax',name='s')(conv9)
+    conv10 = Conv2D(num_class, (1, 1), activation='sigmoid',name='c')(conv9)  #未考虑背景不能用softmax
 
     model = Model(inputs=[inputs], outputs=[conv10,output_l])
 
-    model.compile(optimizer=optimizer, loss=loss, metrics=metrics,loss_weights=[0.3,1.])
+    model.compile(optimizer=optimizer, loss=loss, metrics=metrics,loss_weights=[.8,1.])
 
     return model
 

@@ -3,6 +3,7 @@ import numpy as np
 from keras.optimizers import Adam, SGD
 from keras.callbacks import ModelCheckpoint,TensorBoard
 from keras import backend as K
+from keras.models import load_model
 from keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
 import pickle as pkl
@@ -118,53 +119,65 @@ def weighted_binary_crossentropy(y_true, y_pred,weight = 0.6/0.4):
     # return K.mean(-1.5*np.multiply(y_true,K.log(y_pred+eps))-np.multiply((1.-y_true),K.log(1.-y_pred+eps)))
 
 seed = 1
-height, width = 128, 128
+height, width = 512, 512
 nb_epoch = 200
-model_name = "final_2018_3"
-
-do_train = True # train network and save as model_name
-do_predict = False # use model to predict and save generated masks for Validation/Test
-do_ensemble = False # use previously saved predicted masks from multiple models to generate final masks
-ensemble_pkl_filenames = ["model1", "model3","model5"]
-model = 'unet'
-batch_size = 4
+model_name = "kits2019"
+batch_size = 1
 loss_param = 'dice'
 optimizer_param = 'adam'
 monitor_metric = 'val_jacc_coef'
 
 
-metrics = [jacc_coef,'accuracy',sensitivity,specificity,dice_coef]
-
-
-    
+metrics = [jacc_coef,'accuracy',sensitivity,specificity,dice_coef]    
 loss_options = {'BCE': 'binary_crossentropy', 'dice':dice_loss, 'jacc':jacc_loss, 'mse':'mean_squared_error'}
 optimizer_options = {'adam': Adam(lr=1e-4),
                      'sgd': SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)}
 
 loss = loss_options[loss_param]
 optimizer = optimizer_options[optimizer_param]
-model_filename = "saved_models/2019{}.h5".format(model_name)
+model_filename = "saved_models/{}.h5".format(model_name)
 print(model_filename)
 
-model = models.get_unet(512,512, loss=[muti_dice_coef_loss,weighted_binary_crossentropy], optimizer = optimizer, metrics = [jacc_coef,'accuracy'],channels=1, num_class=2)
+model = models.get_unet(512,512, 
+    loss={'c':muti_dice_coef_loss,'d':weighted_binary_crossentropy}, optimizer = optimizer, 
+              metrics = {'c':jacc_coef,'d':'accuracy'},channels=1, num_class=2)
 # model = models.get_unet(height,width, loss=muti_dice_coef_loss, optimizer = optimizer, metrics = muti_dice_coef,channels=1, num_class=2)
 
 
+if os.path.exists("saved_models/{}_1.h5".format(model_name)):
+    print('loading model')
+    model = load_model("saved_models/{}_1.h5".format(model_name),custom_objects=
+        {'muti_dice_coef_loss':muti_dice_coef_loss,'weighted_binary_crossentropy':weighted_binary_crossentropy,'jacc_coef':jacc_coef})
+
 print ("Loading images")
-
-
 from test import load_imgs
-imgs, masks ,labels= load_imgs(1)
+import random
+imgs, masks ,labels= load_imgs(random.sample(range(0,210),20)) #随机产生不重复整数列表
 
 print ("Using batch size = {}".format(batch_size))
 print ('Fit model')
-model_checkpoint = ModelCheckpoint(model_filename, monitor= 'val_s_jacc_coef', save_best_only=True, verbose=1)  # 'val_jacc_coef'
+model_checkpoint = ModelCheckpoint(model_filename, monitor= 'val_d_acc', save_best_only=True, verbose=1)  # 'val_s_jacc_coef'
 
 model.summary()
-print ("Not using validation during training")
-history = model.fit(imgs,[masks,labels],
-    batch_size = 1,
-   epochs=nb_epoch, 
-  callbacks=[model_checkpoint],verbose=1,
-  validation_split = 0.2)
+# print ("Not using validation during training")
+
+
+history = model.fit(imgs,[masks,labels],batch_size = 4,shuffle=True,epochs=nb_epoch, 
+  callbacks=[model_checkpoint],verbose=1,validation_split = 0.4)
 model.save(model_filename)
+
+
+###########测试分割结果
+# imgs_test, masks_test ,labels_test=load_imgs([46])
+# p_masks,p_labels = model.predict(imgs_test[46:48])
+# p_masks_k = np.round(p_masks[:,:,:,0])
+# p_masks_t = 2*np.round(p_masks[:,:,:,1])
+# # p_masks = np.clip(p_masks,0,2).astype(np.uint8)
+# masks_test_1 = np.round(masks_test[46,:,:,0])+2*np.round(masks_test[46,:,:,1])
+# plt.subplot(1,3,1)
+# plt.imshow(p_masks_k[0],'gray')
+# plt.subplot(1,3,3)
+# plt.imshow(p_masks_t[0],'gray')
+# plt.subplot(1,3,2)
+# plt.imshow(masks_test_1,'gray')
+# plt.show()
